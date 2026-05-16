@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Helpers
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    // User role lookup (expensive, use sparingly)
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isStaff() { return isSignedIn() && getUserRole() in ['staff', 'admin']; }
+    function isAdmin() { return isSignedIn() && getUserRole() == 'admin'; }
+
+    // Connectivity Test
+    match /test/connection {
+      allow get: if isSignedIn();
+    }
+
+    // 1. Users Collection
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() <= 128 &&
+             data.email is string && data.email.size() <= 128 &&
+             data.role in ['customer', 'staff', 'admin'] &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('branchId' in data) || (data.branchId is string && data.branchId.size() <= 64)) &&
+             data.createdAt is string; // Using string for now because the app uses ISO string
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().role == 'customer';
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                    incoming().uid == existing().uid && 
+                    incoming().email == existing().email &&
+                    (isOwner(userId) ? (incoming().role == existing().role) : true); // Owner can't change their own role
+    }
+
+    // 2. Beauty Passports
+    function isValidPassport(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             (!('skinType' in data) || (data.skinType is string && data.skinType.size() <= 50)) &&
+             (!('hairType' in data) || (data.hairType is string && data.hairType.size() <= 50)) &&
+             (!('allergies' in data) || (data.allergies is list && data.allergies.size() <= 20));
+    }
+
+    match /beauty_passports/{userId} {
+      allow read: if isOwner(userId) || isStaff();
+      allow create: if (isOwner(userId) || isStaff()) && isValidPassport(incoming()) && incoming().userId == userId;
+      allow update: if (isOwner(userId) || isStaff()) && isValidPassport(incoming()) && incoming().userId == existing().userId;
+    }
+
+    // 3. Scans
+    function isValidScan(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.imageUrl is string && data.imageUrl.size() <= 2000000 && // 2MB limit for base64 if stored
+             data.type in ['skin', 'hair'] &&
+             data.analysis is map &&
+             data.timestamp is string;
+    }
+
+    match /scans/{scanId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isStaff());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidScan(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 4. Recommendations
+    function isValidRec(data) {
+      return data.userId is string && data.userId.size() <= 128 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.category in ['facial', 'hair_spa', 'product', 'routine'] &&
+             data.content is string && data.content.size() <= 2000;
+    }
+
+    match /recommendations/{recId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isStaff());
+      allow create: if isStaff() && isValidRec(incoming());
+      allow update: if isStaff() && isValidRec(incoming()) && incoming().userId == existing().userId;
+      allow delete: if isAdmin();
+    }
+  }
+}

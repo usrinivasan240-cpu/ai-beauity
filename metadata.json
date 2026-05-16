@@ -1,0 +1,6 @@
+{
+  "name": "AI Beauty Passport System",
+  "description": "Revolutionary AI-powered beauty platform providing personalized skin and hair analysis, AR try-ons, and digital beauty passports for a futuristic salon experience.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["AI Analysis", "AR Try-on", "Beauty Passport"]
+}

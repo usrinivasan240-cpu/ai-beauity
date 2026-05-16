@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user of the system (Customer, Staff, or Admin)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "staff", "admin"] },
+        "branchId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "profileImage": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "BeautyPassport": {
+      "title": "Beauty Passport",
+      "description": "A digital beauty profile for a customer",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "skinType": { "type": "string" },
+        "hairType": { "type": "string" },
+        "allergies": { "type": "array", "items": { "type": "string" } },
+        "beautyHistory": { "type": "string" },
+        "previousVisits": { "type": "integer" },
+        "lastScanId": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId"]
+    },
+    "Scan": {
+      "title": "AI Scan",
+      "description": "An AI-powered assessment of skin or hair",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "type": { "type": "string", "enum": ["skin", "hair"] },
+        "analysis": {
+          "type": "object",
+          "properties": {
+            "acne": { "type": "number" },
+            "dryness": { "type": "number" },
+            "pigmentation": { "type": "number" },
+            "darkCircles": { "type": "number" },
+            "hairFall": { "type": "number" },
+            "dandruff": { "type": "number" },
+            "scalpCondition": { "type": "string" }
+          }
+        },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "imageUrl", "type"]
+    },
+    "Recommendation": {
+      "title": "Beauty Recommendation",
+      "description": "Personalized beauty advice based on analysis",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["facial", "hair_spa", "product", "routine"] },
+        "content": { "type": "string" },
+        "scanId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "beauty_passports/{userId}": {
+      "schema": "BeautyPassport",
+      "description": "Customer beauty status"
+    },
+    "scans/{scanId}": {
+      "schema": "Scan",
+      "description": "AI analysis reports"
+    },
+    "recommendations/{recId}": {
+      "schema": "Recommendation",
+      "description": "System generated recommendations"
+    }
+  }
+}
